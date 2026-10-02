@@ -1,0 +1,37 @@
+{
+    "name": "@qr-code/api",
+    "version": "1.0.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "bun --watch src/index.ts",
+        "build": "bun build src/index.ts --target=bun --outdir=dist",
+        "start": "bun dist/index.js",
+        "db:migrate": "bun src/migrate.ts",
+        "db:generate": "echo 'PostgreSQL schema is maintained in migrations/001_init.sql'"
+    },
+    "dependencies": {
+        "bcryptjs": "^3.0.2",
+        "cookie-parser": "^1.4.7",
+        "dotenv": "^16.6.1",
+        "express": "^5.2.1",
+        "express-rate-limit": "^8.1.0",
+        "geoip-lite": "^2.0.1",
+        "helmet": "^8.1.0",
+        "pg": "^8.16.3",
+        "qrcode": "^1.5.4",
+        "ua-parser-js": "^2.0.5"
+    },
+    "devDependencies": {
+        "@types/bun": "latest",
+        "@types/bcryptjs": "^2.4.6",
+        "@types/cookie-parser": "^1.4.9",
+        "@types/express": "^5.0.3",
+        "@types/geoip-lite": "^1.4.4",
+        "@types/node": "^22.18.6",
+        "@types/pg": "^8.15.5",
+        "@types/qrcode": "^1.5.5",
+        "@types/ua-parser-js": "^0.7.39",
+        "typescript": "^5.9.2"
+    }
+}

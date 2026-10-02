@@ -1,0 +1,24 @@
+{
+  "name": "qr-code",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "dev": "bun --filter '*' dev",
+    "dev:web": "bun --cwd apps/front dev",
+    "dev:api": "bun --cwd apps/api dev",
+    "build": "bun --filter '*' build",
+    "test": "bun --filter '*' test",
+    "db:generate": "bun --cwd apps/api db:generate",
+    "db:migrate": "bun --cwd apps/api db:migrate"
+  },
+  "dependencies": {}
+}

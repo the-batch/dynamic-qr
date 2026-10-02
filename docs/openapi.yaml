@@ -1,0 +1,520 @@
+openapi: 3.1.0
+info:
+  title: Signal QR Analytics API
+  version: 1.0.0
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+  description: >-
+    API Express pour l’authentification administrateur, la gestion des QR codes
+    dynamiques, les statistiques de scans et la redirection suivie.
+servers:
+  - url: '{protocol}://{host}:{port}'
+    description: Serveur local
+    variables:
+      protocol:
+        default: http
+        enum: [http, https]
+      host:
+        default: localhost
+      port:
+        default: '4000'
+tags:
+  - name: Health
+    description: Disponibilité du processus API.
+  - name: Authentication
+    description: Ouverture, lecture et fermeture de la session administrateur.
+  - name: QR codes
+    description: Création, modification, téléchargement SVG et analytics des QR codes.
+  - name: Redirect
+    description: Enregistrement des scans et redirection publique.
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Vérifier que le processus API répond
+      operationId: getHealth
+      security: []
+      responses:
+        '200':
+          description: API disponible
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    const: ok
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/auth/login:
+    post:
+      tags: [Authentication]
+      summary: Ouvrir une session administrateur
+      operationId: login
+      security: []
+      description: >-
+        Le mot de passe est vérifié contre le hash bcrypt configuré. Une origine
+        identique à FRONTEND_URL est obligatoire. Limite de 8 tentatives par
+        fenêtre de 15 minutes et par adresse IP.
+      parameters:
+        - $ref: '#/components/parameters/TrustedOrigin'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Session créée; le cookie est HttpOnly et valable 12 heures.
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/SessionCookie'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionUser'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Identifiants invalides
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          $ref: '#/components/responses/ForbiddenOrigin'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/auth/logout:
+    post:
+      tags: [Authentication]
+      summary: Fermer la session administrateur
+      operationId: logout
+      security: []
+      description: Efface le cookie de session. Une origine identique à FRONTEND_URL est obligatoire.
+      parameters:
+        - $ref: '#/components/parameters/TrustedOrigin'
+      responses:
+        '204':
+          description: Cookie de session effacé
+        '403':
+          $ref: '#/components/responses/ForbiddenOrigin'
+
+  /api/auth/session:
+    get:
+      tags: [Authentication]
+      summary: Lire l’administrateur connecté
+      operationId: getSession
+      security:
+        - AdminSession: []
+      responses:
+        '200':
+          description: Session valide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionUser'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/qr:
+    get:
+      tags: [QR codes]
+      summary: Lister les QR codes
+      operationId: listQrCodes
+      security:
+        - AdminSession: []
+      responses:
+        '200':
+          description: QR codes classés du plus récent au plus ancien
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/QrCodeListItem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    post:
+      tags: [QR codes]
+      summary: Créer un QR code dynamique
+      operationId: createQrCode
+      description: >-
+        Le code court est généré aléatoirement. Le QR renvoie vers
+        PUBLIC_REDIRECT_BASE_URL/r/{short_code}; la destination peut être
+        modifiée ultérieurement sans réimprimer le QR code.
+      security:
+        - AdminSession: []
+      parameters:
+        - $ref: '#/components/parameters/TrustedOrigin'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateQrCodeRequest'
+      responses:
+        '201':
+          description: QR code créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QrCodeListItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenOrigin'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/qr/{id}:
+    patch:
+      tags: [QR codes]
+      summary: Modifier la destination d’un QR code
+      operationId: updateQrCodeDestination
+      description: Le QR code et son code court restent inchangés.
+      security:
+        - AdminSession: []
+      parameters:
+        - $ref: '#/components/parameters/QrCodeId'
+        - $ref: '#/components/parameters/TrustedOrigin'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateQrCodeRequest'
+      responses:
+        '200':
+          description: Destination mise à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QrCode'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenOrigin'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/qr/{id}/svg:
+    get:
+      tags: [QR codes]
+      summary: Télécharger le QR code au format SVG
+      operationId: getQrCodeSvg
+      security:
+        - AdminSession: []
+      parameters:
+        - $ref: '#/components/parameters/QrCodeId'
+      responses:
+        '200':
+          description: Image SVG pointant vers l’URL courte
+          content:
+            image/svg+xml:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/qr/{id}/analytics:
+    get:
+      tags: [QR codes]
+      summary: Obtenir les statistiques agrégées d’un QR code
+      operationId: getQrCodeAnalytics
+      description: Le total est calculé sur toute la période; la série temporelle couvre les 30 derniers jours.
+      security:
+        - AdminSession: []
+      parameters:
+        - $ref: '#/components/parameters/QrCodeId'
+      responses:
+        '200':
+          description: Statistiques de scans du QR code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Analytics'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /r/{short_code}:
+    get:
+      tags: [Redirect]
+      summary: Enregistrer un scan puis rediriger vers sa destination
+      operationId: redirectQrCode
+      security: []
+      description: >-
+        Enregistre en tâche de fond l’heure, la géolocalisation estimée, un HMAC
+        de l’adresse IP, l’agent utilisateur analysé et le référent. L’adresse IP
+        brute n’est pas stockée. Limite de 180 requêtes par minute et par adresse IP.
+      parameters:
+        - name: short_code
+          in: path
+          required: true
+          description: Identifiant court du QR code
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 32
+            pattern: '^[A-Za-z0-9_-]+$'
+      responses:
+        '302':
+          description: Redirection temporaire vers target_url
+          headers:
+            Location:
+              description: URL de destination actuelle
+              schema:
+                type: string
+                format: uri
+        '404':
+          description: QR code inconnu
+          content:
+            text/html:
+              schema:
+                type: string
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+components:
+  securitySchemes:
+    AdminSession:
+      type: apiKey
+      in: cookie
+      name: qr_admin_session
+      description: Cookie HttpOnly signé, valable 12 heures.
+  parameters:
+    QrCodeId:
+      name: id
+      in: path
+      required: true
+      description: UUID du QR code
+      schema:
+        type: string
+        format: uuid
+    TrustedOrigin:
+      name: Origin
+      in: header
+      required: true
+      description: Doit correspondre exactement à FRONTEND_URL pour toute mutation.
+      schema:
+        type: string
+        format: uri
+  headers:
+    SessionCookie:
+      description: >-
+        Cookie qr_admin_session; HttpOnly, SameSite=Strict, Path=/, durée 12 h.
+        L’attribut Secure est activé en production.
+      schema:
+        type: string
+  responses:
+    BadRequest:
+      description: Corps invalide ou URL qui n’est pas HTTP(S)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Session absente, invalide ou expirée
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ForbiddenOrigin:
+      description: En-tête Origin absent ou différent de FRONTEND_URL
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: QR code inconnu
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    RateLimited:
+      description: Limite de requêtes dépassée
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              message:
+                type: string
+    ServerError:
+      description: Erreur serveur inattendue
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+    SessionUser:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+    CreateQrCodeRequest:
+      type: object
+      additionalProperties: false
+      required: [title, targetUrl]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        targetUrl:
+          $ref: '#/components/schemas/HttpUrl'
+    UpdateQrCodeRequest:
+      type: object
+      additionalProperties: false
+      required: [targetUrl]
+      properties:
+        targetUrl:
+          $ref: '#/components/schemas/HttpUrl'
+    HttpUrl:
+      type: string
+      format: uri
+      pattern: '^https?://.+'
+      description: URL HTTP ou HTTPS uniquement.
+    QrCode:
+      type: object
+      required: [id, title, short_code, target_url, created_at, qrCodeUrl]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          maxLength: 120
+        short_code:
+          type: string
+          pattern: '^[A-Za-z0-9_-]+$'
+        target_url:
+          $ref: '#/components/schemas/HttpUrl'
+        created_at:
+          type: string
+          format: date-time
+        qrCodeUrl:
+          type: string
+          format: uri
+          description: URL publique de redirection encodée dans le QR code.
+    QrCodeListItem:
+      allOf:
+        - $ref: '#/components/schemas/QrCode'
+        - type: object
+          required: [total_scans]
+          properties:
+            total_scans:
+              type: integer
+              minimum: 0
+    CountItem:
+      type: object
+      required: [label, count]
+      properties:
+        label:
+          type: string
+        count:
+          type: integer
+          minimum: 0
+    TimelineItem:
+      type: object
+      required: [date, count]
+      properties:
+        date:
+          type: string
+          format: date
+        count:
+          type: integer
+          minimum: 0
+    Analytics:
+      type: object
+      required: [qrCode, total, timeline, countries, cities, devices, browsers, systems]
+      properties:
+        qrCode:
+          type: object
+          required: [id, title, short_code]
+          properties:
+            id:
+              type: string
+              format: uuid
+            title:
+              type: string
+            short_code:
+              type: string
+        total:
+          type: integer
+          minimum: 0
+          description: Nombre total de scans depuis la création.
+        timeline:
+          type: array
+          description: Nombre de scans par jour sur les 30 derniers jours, jours sans scan inclus.
+          items:
+            $ref: '#/components/schemas/TimelineItem'
+        countries:
+          type: array
+          description: Six pays au maximum; valeurs GeoIP généralement au format ISO 3166-1 alpha-2.
+          items:
+            $ref: '#/components/schemas/CountItem'
+        cities:
+          type: array
+          description: Six villes au maximum; les scans sans ville sont exclus.
+          items:
+            $ref: '#/components/schemas/CountItem'
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/CountItem'
+        browsers:
+          type: array
+          items:
+            $ref: '#/components/schemas/CountItem'
+        systems:
+          type: array
+          items:
+            $ref: '#/components/schemas/CountItem'
