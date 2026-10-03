@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent, type ReactElement } from 'react';
 import { useRouter } from 'next/navigation';
+import { hasFlag } from 'country-flag-icons';
+import * as FlagIcons from 'country-flag-icons/react/3x2';
 import {
     ArrowDownToLine, ArrowUpRight, BarChart3, CalendarDays, Check,
     Copy, Globe2, LogOut, MousePointer2, Pencil, Plus, QrCode, RefreshCw, X,
@@ -21,7 +23,7 @@ type QrCodeEntry = {
     qrCodeUrl?: string;
 };
 
-type CountItem = { label: string; count: number };
+type CountItem = { label: string; count: number; countryCode?: string };
 type Analytics = {
     qrCode: { id: string; title: string; short_code: string };
     total: number;
@@ -37,15 +39,29 @@ function formatDate(date: string) {
     return new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short' }).format(new Date(`${date.slice(0, 10)}T12:00:00`));
 }
 
+function getCountryName(code: string) {
+    return new Intl.DisplayNames(['fr'], { type: 'region' }).of(code) ?? code;
+}
+
 function Breakdown({ title, items }: { title: string; items: CountItem[] }) {
     return (
         <section className="panel">
             <div className="panel-header"><h2 className="panel-title">{title}</h2><span className="panel-note">Répartition</span></div>
             {items.length ? <div className="breakdown-list">
-                {items.map((item) => <div className="breakdown-row" key={`${title}-${item.label}`}>
-                    <span className="breakdown-name"><i className="breakdown-dot" />{item.label}</span>
-                    <span className="breakdown-count">{item.count.toLocaleString('fr-FR')}</span>
-                </div>)}
+                {items.map((item) => {
+                    const Flag = item.countryCode && hasFlag(item.countryCode)
+                        ? (FlagIcons as unknown as Record<string, (props: { className?: string; title?: string }) => ReactElement>)[item.countryCode]
+                        : undefined;
+                    return <div className="breakdown-row" key={`${title}-${item.label}`}>
+                        <span className="breakdown-name">
+                            {Flag
+                                ? <Flag className="country-flag" title={item.label} />
+                                : <i className="breakdown-dot" />}
+                            {item.label}
+                        </span>
+                        <span className="breakdown-count">{item.count.toLocaleString('fr-FR')}</span>
+                    </div>;
+                })}
             </div> : <div className="empty-breakdown">Aucune donnée pour le moment</div>}
         </section>
     );
@@ -249,7 +265,18 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="lower-grid">
-                    <Breakdown title="Origine des scans" items={[...(analytics?.countries ?? []), ...(analytics?.cities ?? []).map((city) => ({ ...city, label: `${city.label} · ville` }))]} />
+                    <Breakdown title="Origine des scans" items={[
+                        ...(analytics?.countries ?? []).map((country) => {
+                            const code = country.label.toUpperCase();
+                            const countryCode = /^[A-Z]{2}$/.test(code) && hasFlag(code) ? code : undefined;
+                            return {
+                                ...country,
+                                label: countryCode ? getCountryName(countryCode) : country.label,
+                                countryCode,
+                            };
+                        }),
+                        ...(analytics?.cities ?? []).map((city) => ({ ...city, label: `${city.label} · ville` })),
+                    ]} />
                     <Breakdown title="Appareils & logiciels" items={[...(analytics?.devices ?? []), ...(analytics?.browsers ?? []).map((item) => ({ ...item, label: `${item.label} · navigateur` })), ...(analytics?.systems ?? []).map((item) => ({ ...item, label: `${item.label} · OS` }))]} />
                 </div>
 

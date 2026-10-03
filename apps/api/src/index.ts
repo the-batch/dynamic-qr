@@ -11,7 +11,7 @@ import { clearSessionCookie, createSession, requireSession, requireTrustedOrigin
 import { pool } from './db';
 
 const app = express();
-const port = Number(process.env.API_PORT ?? 4000);
+const port = Number(process.env.PORT ?? process.env.API_PORT ?? 4000);
 const redirectBaseUrl = process.env.PUBLIC_REDIRECT_BASE_URL ?? 'http://localhost:4000';
 const ipHashSecret = process.env.IP_HASH_SECRET;
 

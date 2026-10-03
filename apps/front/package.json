@@ -9,6 +9,7 @@
         "test": "echo 'No frontend tests configured yet'"
     },
     "dependencies": {
+        "country-flag-icons": "^1.6.20",
         "dotenv": "^16.6.1",
         "lucide-react": "^0.468.0",
         "next": "^15.5.3",

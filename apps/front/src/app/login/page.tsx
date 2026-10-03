@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, BarChart3, QrCode } from 'lucide-react';
@@ -39,21 +40,22 @@ export default function LoginPage() {
     if (checking) return <div className="auth-loading">Vérification de la session…</div>;
 
     return (
-        <main className="login-page">
-            <section className="login-art" aria-label="Signal analytics">
-                <div className="brand"><span className="brand-mark"><QrCode size={20} /></span>signal</div>
-                <div className="login-art-copy">
-                    <p className="eyebrow">Le lien entre scan et destination</p>
-                    <h1>Chaque scan raconte quelque chose.</h1>
-                    <p>Des QR codes dynamiques, des destinations modifiables et une lecture claire de votre audience.</p>
-                </div>
-                <div className="login-art-foot">Un espace privé pour vos campagnes.</div>
+        <main className="login-page" data-theme="light">
+            <section className="login-art" aria-label="Affiche Mansa Capital">
+                <Image
+                    alt="Affiche Mansa Capital sur la création d'un patrimoine durable"
+                    className="login-poster"
+                    fill
+                    priority
+                    sizes="(max-width: 720px) 100vw, 56vw"
+                    src="/poster.webp"
+                />
             </section>
             <section className="login-side">
                 <form className="login-form" onSubmit={handleSubmit}>
                     <div className="brand"><span className="brand-mark"><QrCode size={20} /></span>signal</div>
-                    <h2>Bon retour.</h2>
-                    <p>Connectez-vous à votre espace analytics.</p>
+                    <h2>Accéder à votre espace.</h2>
+                    <p>Connectez-vous à votre espace sécurisé.</p>
                     {error && <div className="inline-error" role="alert">{error}</div>}
                     <label className="form-field">
                         Adresse e-mail

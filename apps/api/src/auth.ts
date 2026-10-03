@@ -74,11 +74,42 @@ export function requireSession(request: Request, response: Response, next: NextF
     next();
 }
 
+function parseHttpOrigin(value: string) {
+    try {
+        const origin = new URL(value);
+        return ['http:', 'https:'].includes(origin.protocol) ? origin : null;
+    } catch {
+        return null;
+    }
+}
+
+export function isTrustedOrigin(
+    origin: string | undefined,
+    configuredOrigins = process.env.FRONTEND_URL,
+    production = process.env.NODE_ENV === 'production',
+) {
+    const requestOrigin = origin ? parseHttpOrigin(origin) : null;
+    const allowedOrigins = configuredOrigins
+        ?.split(',')
+        .map((value) => parseHttpOrigin(value.trim()))
+        .filter((value): value is URL => value !== null) ?? [];
+
+    if (!requestOrigin) return false;
+
+    return allowedOrigins.some((allowedOrigin) => {
+        if (requestOrigin.protocol !== allowedOrigin.protocol) return false;
+        if (production) return requestOrigin.origin === allowedOrigin.origin;
+
+        const localHosts = new Set(['localhost', '127.0.0.1', '[::1]']);
+        return requestOrigin.hostname === allowedOrigin.hostname
+            || (localHosts.has(requestOrigin.hostname) && localHosts.has(allowedOrigin.hostname))
+            || localHosts.has(requestOrigin.hostname);
+    });
+}
+
 export function requireTrustedOrigin(request: Request, response: Response, next: NextFunction) {
-    const origin = request.get('origin');
-    const expectedOrigin = process.env.FRONTEND_URL;
     if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method)
-        && (!origin || !expectedOrigin || origin !== expectedOrigin)) {
+        && !isTrustedOrigin(request.get('origin'))) {
         response.status(403).json({ error: 'Origine non autorisée.' });
         return;
     }

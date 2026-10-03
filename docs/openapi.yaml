@@ -58,8 +58,9 @@ paths:
       security: []
       description: >-
         Le mot de passe est vérifié contre le hash bcrypt configuré. Une origine
-        identique à FRONTEND_URL est obligatoire. Limite de 8 tentatives par
-        fenêtre de 15 minutes et par adresse IP.
+        En production, l’origine doit correspondre exactement à FRONTEND_URL.
+        En développement, protocole et hôte doivent correspondre; le port peut
+        varier. Limite de 8 tentatives par fenêtre de 15 minutes et par adresse IP.
       parameters:
         - $ref: '#/components/parameters/TrustedOrigin'
       requestBody:
@@ -99,7 +100,9 @@ paths:
       summary: Fermer la session administrateur
       operationId: logout
       security: []
-      description: Efface le cookie de session. Une origine identique à FRONTEND_URL est obligatoire.
+      description: >-
+        Efface le cookie de session. En production, l’origine doit correspondre
+        exactement à FRONTEND_URL; en développement, le port peut varier.
       parameters:
         - $ref: '#/components/parameters/TrustedOrigin'
       responses:
@@ -321,7 +324,9 @@ components:
       name: Origin
       in: header
       required: true
-      description: Doit correspondre exactement à FRONTEND_URL pour toute mutation.
+      description: >-
+        Doit être autorisée par FRONTEND_URL. En développement, le port est ignoré;
+        en production, l’origine complète doit correspondre exactement.
       schema:
         type: string
         format: uri
@@ -346,7 +351,7 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
     ForbiddenOrigin:
-      description: En-tête Origin absent ou différent de FRONTEND_URL
+      description: En-tête Origin absent ou non autorisé par FRONTEND_URL
       content:
         application/json:
           schema:
